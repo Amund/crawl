@@ -1,0 +1,235 @@
+@font-face {
+    font-family: 'Ubuntu Condensed';
+    font-style: normal;
+    font-weight: 100;
+    src:
+        local('Ubuntu Condensed'),
+        local('UbuntuCondensed-Regular'),
+        url('font/UbuntuCondensed-Regular.ttf') format('TrueType');
+}
+@font-face {
+    font-family: 'sans';
+    font-style: normal;
+    font-weight: 100;
+    src: url('font/DejaVu-Sans-V2.woff2') format('woff2');
+}
+@font-face {
+    font-family: 'mono';
+    font-style: normal;
+    font-weight: 100;
+    src: url('font/DejaVu-Sans-Mono-V2.woff2') format('woff2');
+}
+
+:root {
+    --back: #222;
+    --front: #aaa;
+    --border: #333;
+    --pad: 3px;
+}
+
+body,
+input,
+button,
+select,
+option,
+optgroup {
+    font-size: 1rem;
+    font-family: 'sans';
+}
+
+html {
+    height: 100%;
+}
+
+body {
+    color: var(--front);
+    background: var(--back);
+    margin: 0;
+    padding: var(--pad);
+    display: grid;
+    gap: var(--pad);
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: min-content min-content auto;
+    grid-template-areas: 'crawler crawler' 'report report' 'urls detail';
+    height: 100%;
+    box-sizing: border-box;
+    border: 1px solid var(--border);
+}
+
+input,
+select {
+    color: var(--front);
+    background: var(--back);
+    border: 1px solid var(--border);
+    outline: none;
+}
+
+a {
+    text-decoration-color: var(--border);
+
+    &:hover {
+        text-decoration-color: var(--front);
+    }
+}
+
+.crawler {
+    grid-area: crawler;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--pad);
+
+    h1 {
+        margin: 0;
+    }
+
+    .crawl-log {
+        flex-grow: 1;
+        min-height: 1em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        padding-inline: 10px;
+        font-size: 12px;
+    }
+
+    .crawl-url {
+        padding: 8px 10px;
+    }
+
+    .crawl-start,
+    .crawl-stop {
+        appearance: none;
+        background-color: var(--back);
+        color: var(--front);
+        border: 1px solid var(--border);
+        padding: 8px 10px;
+    }
+
+    .crawl-stop {
+        background-color: #ff0039;
+        color: #fff;
+        display: none;
+    }
+
+    /* border: 1px solid var(--border); */
+}
+
+.report {
+    grid-area: report;
+    padding: 8px 10px;
+    font-family: 'mono';
+}
+
+.urls {
+    grid-area: urls;
+    display: flex;
+    flex-direction: column;
+    gap: var(--pad);
+}
+
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--pad);
+
+    .status {
+        padding: 8px 10px;
+    }
+
+    .search {
+        flex-grow: 1;
+        /* min-width: 150px; */
+        padding: 8px 10px;
+    }
+
+    .internal {
+        padding: 8px 10px;
+    }
+
+    .count {
+        padding: 8px 10px;
+        display: flex;
+        gap: 5px;
+        align-items: center;
+        border: 1px solid var(--border);
+
+        &::after {
+            content: 'url(s)';
+        }
+    }
+}
+
+.url {
+    flex-grow: 1;
+    width: 100%;
+    padding-block: 6px;
+
+    option {
+        padding: 0px 10px;
+        display: flex;
+        align-items: center;
+        /* font-family: 'mono'; */
+
+        &::before {
+            content: attr(data-status);
+            color: #fff;
+            background-color: #ff0039;
+            font-size: 11px;
+            border-radius: 3px;
+            padding: 1px 3px;
+            margin-right: 10px;
+            font-weight: bold;
+            font-family: 'mono';
+        }
+
+        &[data-status^='2']::before {
+            background-color: #00a697;
+        }
+        &[data-status^='4']::before {
+            background-color: #db7d11;
+        }
+        &.hidden {
+            display: none;
+        }
+    }
+}
+
+.detail {
+    grid-area: detail;
+    border: 1px solid var(--border);
+    font-family: 'sans';
+    overflow: auto;
+
+    .sticky {
+        position: sticky;
+        top: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        background-color: var(--back);
+        padding: 30px 20px;
+    }
+
+    .field {
+        display: flex;
+        gap: 10px;
+
+        label {
+            opacity: 0.5;
+            min-width: 100px;
+            text-align: right;
+        }
+    }
+
+    .link {
+        color: var(--front);
+    }
+
+    .referers {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 20px;
+    }
+}

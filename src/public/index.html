@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="fr">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Crawl</title>
+        <link rel="stylesheet" href="app.css" />
+    </head>
+    <body>
+        <div class="crawler">
+            <input
+                class="crawl-url"
+                type="text"
+                value=""
+                placeholder="URL to crawl..."
+            />
+            <button class="crawl-start" type="button">Start</button>
+            <button class="crawl-stop" type="button">Stop</button>
+            <div class="crawl-log"></div>
+            <h1>Crawl</h1>
+        </div>
+
+        <select class="report"></select>
+
+        <div class="urls">
+            <div class="filters">
+                <select class="status">
+                    <option value="">Status...</option>
+                    <option value="!2">!= 2xx</option>
+                    <option value="2">= 2xx</option>
+                    <option value="4">= 4xx</option>
+                    <option value="5">= 5xx</option>
+                </select>
+                <input type="search" class="search" placeholder="Search..." />
+                <select class="internal">
+                    <option value="">Type...</option>
+                    <option value="internal">Internal</option>
+                    <option value="external">External</option>
+                </select>
+                <div class="count"></div>
+            </div>
+            <select class="url" multiple></select>
+        </div>
+
+        <div class="detail">details</div>
+
+        <script src="app.js" type="module"></script>
+    </body>
+</html>

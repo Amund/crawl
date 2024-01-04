@@ -1,0 +1,28 @@
+version: '3'
+services:
+    app:
+        container_name: app-$PROJECT
+        image: node:20-alpine
+        restart: unless-stopped
+        env_file: .env
+        networks:
+            - dev
+        volumes:
+            - .:/app
+        working_dir: /app
+        hostname: $HOSTNAME
+        extra_hosts:
+            - host.docker.internal:host-gateway
+        labels:
+            - 'traefik.enable=true'
+            - 'traefik.http.routers.$PROJECT.rule=Host(`$HOSTNAME`)'
+            - 'traefik.http.routers.$PROJECT.entrypoints=https'
+            - 'traefik.http.routers.$PROJECT.tls=true'
+        # command: ['npm', 'run', 'serve-dev']
+        command: ['tail', '-f', '/dev/null']
+        ports:
+            - '$PORT:3000'
+
+networks:
+    dev:
+        external: true

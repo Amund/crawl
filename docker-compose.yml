@@ -18,10 +18,10 @@ services:
             - 'traefik.http.routers.$PROJECT.rule=Host(`$HOSTNAME`)'
             - 'traefik.http.routers.$PROJECT.entrypoints=https'
             - 'traefik.http.routers.$PROJECT.tls=true'
-        # command: ['npm', 'run', 'serve-dev']
-        command: ['tail', '-f', '/dev/null']
+        # command: ['tail', '-f', '/dev/null']
+        command: ['npm', 'run', $START]
         ports:
-            - '$PORT:3000'
+            - $PORT:3000
 
 networks:
     dev:

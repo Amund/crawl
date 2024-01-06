@@ -95,6 +95,7 @@ a {
 
     .crawl-url {
         padding: 8px 10px;
+        width: 300px;
     }
 
     .crawl-start,
@@ -208,18 +209,35 @@ a {
         flex-direction: column;
         gap: 5px;
         background-color: var(--back);
-        padding: 30px 20px;
+        padding: 10px 20px 30px;
+        max-height: 50%;
+        overflow: auto;
     }
 
-    .field {
-        display: flex;
-        gap: 10px;
+    table {
+        border-collapse: collapse;
+    }
 
-        label {
-            opacity: 0.5;
-            min-width: 100px;
-            text-align: right;
+    .separator {
+        border-bottom: 1px solid var(--border);
+
+        th {
+            text-align: center;
+            padding-top: 20px;
         }
+    }
+
+    th {
+        vertical-align: top;
+        opacity: 0.5;
+        min-width: 100px;
+        text-align: right;
+        padding: 3px 6px;
+    }
+
+    td {
+        vertical-align: top;
+        padding: 3px 6px;
     }
 
     .link {

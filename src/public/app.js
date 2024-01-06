@@ -189,31 +189,41 @@ function detail(data) {
     data.headers = data.headers || {}
     for (const [key, value] of Object.entries(data.headers)) {
         headers += `
-    <div class="field">
-        <label>${key}</label>
-        <span>${value}</span>
-    </div>
+        <tr>
+            <th>${key}</th>
+            <td>${value}</td>
+        </tr>
         `
     }
     return `
 <div class="sticky">
-    <div class="field">
-        <label>Link</label>
-        <a class="link" href="${data.url}" target="_blank">${data.url}</a>
-    </div>
-    <div class="field">
-        <label>Type</label>
-        <span>${data.isInternal ? 'Internal' : 'External'}</span>
-    </div>
-    <div class="field">
-        <label>Status</label>
-        <span>${data.status} - ${data.statusText}</span>
-    </div>
-    ${headers}
-    <div class="field">
-        <label>Referers</label>
-        <span>${numberFormat(data.referers.length)}</span>
-    </div>
+    <table>
+        <tbody>
+            <tr class="separator"><th colspan="2">Details</th></tr>
+            <tr>
+                <th>Link</th>
+                <td><a class="link" href="${data.url}" target="_blank">${
+                    data.url
+                }</a></td>
+            </tr>
+            <tr>
+                <th>Type</th>
+                <td>${data.isInternal ? 'Internal' : 'External'}</td>
+            </tr>
+            <tr>
+                <th>Status</th>
+                <td>${data.status} - ${data.statusText}</td>
+            </tr>
+            <tr>
+                <th>Referers</th>
+                <td>${numberFormat(data.referers.length)}</td>
+            </tr>
+        </tbody>
+        <tbody class="headers">
+            <tr class="separator"><th colspan="2">Headers</th></tr>
+            ${headers}
+        </tbody>
+    </table>
 </div>
 <div class="referers">${referers}</div>
         `

@@ -48,7 +48,7 @@ body {
     padding: var(--pad);
     display: grid;
     gap: var(--pad);
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-rows: min-content min-content auto;
     grid-template-areas: 'crawler crawler' 'report report' 'urls detail';
     height: 100%;
@@ -69,6 +69,34 @@ a {
 
     &:hover {
         text-decoration-color: var(--front);
+    }
+}
+
+[is='virtual-list'] {
+    overflow-y: auto;
+    height: 200px;
+
+    > ul {
+        position: relative;
+        margin: 0;
+        padding: 0;
+
+        > li {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            padding-inline: 5px;
+            white-space: nowrap;
+            cursor: pointer;
+            width: 100%;
+            overflow: hidden;
+
+            &.selected,
+            &:hover {
+                background-color: var(--border);
+                color: #eee;
+            }
+        }
     }
 }
 
@@ -163,10 +191,10 @@ a {
 
 .url {
     flex-grow: 1;
-    width: 100%;
     padding-block: 6px;
+    border: 1px solid var(--border);
 
-    option {
+    div {
         padding: 0px 10px;
         display: flex;
         align-items: center;

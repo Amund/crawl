@@ -1,3 +1,5 @@
+import 'https://cdn.jsdelivr.net/npm/@amundsan/virtual-list'
+
 const qs = (v) => document.querySelector(v)
 const qsa = (v) => document.querySelectorAll(v)
 const numberFormat = (v) => new Intl.NumberFormat('fr-FR').format(v)
@@ -15,6 +17,14 @@ let dom = {
     url: qs('.url'),
     detail: qs('.detail'),
 }
+
+let unfilteredList
+
+// setup url virtual list template
+dom.url.template = ({ url, status, redirected, isInternal }) =>
+    `<div title="${url}" data-status="${status}" data-internal="${
+        isInternal ? 'true' : 'false'
+    }">${url}</div>`
 
 // launch new crawl
 dom.crawlStart.addEventListener('click', async () => {
@@ -59,7 +69,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     dom.search.value = ''
     dom.internal.value = ''
     dom.count.innerHTML = '0'
-    dom.url.innerHTML = ''
+    dom.url.items = []
     dom.detail.innerHTML = ''
 })
 
@@ -69,33 +79,26 @@ dom.report.addEventListener('input', async () => {
     dom.search.value = ''
     dom.internal.value = ''
     dom.count.innerHTML = '0'
-    dom.url.innerHTML = ''
+    dom.url.items = []
     dom.detail.innerHTML = ''
     if (dom.report.value !== '') {
         const response = await fetch(`api/reports/${dom.report.value}`)
-        const list = await response.json()
+        unfilteredList = await response.json()
 
-        let html = ''
-        for (const [url, item] of Object.entries(list))
-            html += `<option title="${url}" data-status="${
-                item.status
-            }" data-internal="${
-                item.isInternal ? 'true' : 'false'
-            }">${url}</option>`
-        dom.url.innerHTML = html
-        dom.count.innerHTML = numberFormat(dom.url.children.length)
+        dom.url.items = [...unfilteredList]
+        dom.count.innerHTML = numberFormat(dom.url.items.length)
     }
 })
 
 // on select an url
 dom.url.addEventListener('input', async () => {
-    // console.log(dom.url.value)
-    if (dom.url.value !== '') {
+    if (dom.url.selected !== null) {
+        const url = dom.url.items[dom.url.selected].url
         const response = await fetch(
-            `api/reports/${dom.report.value}/${btoa(dom.url.value)}`,
+            `api/reports/${dom.report.value}/${encodeURIComponent(btoa(url))}`,
         )
         const data = await response.json()
-        data.url = dom.url.value
+        data.url = url
         dom.detail.innerHTML = detail(data)
     }
 })
@@ -131,51 +134,51 @@ async function search() {
     const status = dom.status.value
     const search = dom.search.value
     const internal = dom.internal.value
-    let count = 0
 
     if (status !== '' || search !== '' || internal !== '') {
         // filters
-        for (const el of dom.url.children) {
+        const filteredList = []
+        for (const row of unfilteredList) {
             let hidden = false
             if (hidden === false && status !== '') {
                 switch (status) {
                     case '!2':
-                        hidden = (el.dataset.status || '').startsWith('2')
+                        hidden = (row.status?.toString() || '').startsWith('2')
                         break
                     case '2':
-                        hidden = !(el.dataset.status || '').startsWith('2')
+                        hidden = !(row.status?.toString() || '').startsWith('2')
                         break
                     case '4':
-                        hidden = !(el.dataset.status || '').startsWith('4')
+                        hidden = !(row.status?.toString() || '').startsWith('4')
                         break
                     case '5':
-                        hidden = !(el.dataset.status || '').startsWith('5')
+                        hidden = !(row.status?.toString() || '').startsWith('5')
                         break
                 }
             }
             if (hidden === false && search !== '') {
-                hidden = !el.text.includes(search)
+                hidden = !(row.url || '').includes(search)
             }
             if (hidden === false && internal !== '') {
                 switch (internal) {
                     case 'internal':
-                        hidden = (el.dataset.internal || '') === 'false'
+                        hidden = row.isInternal === true || false
                         break
                     case 'external':
-                        hidden = (el.dataset.internal || '') === 'true'
+                        hidden = row.isInternal === false || false
                         break
                 }
             }
-            el.classList.toggle('hidden', hidden)
-            if (!hidden) count++
+            if (!hidden) {
+                filteredList.push(row)
+            }
         }
-        dom.count.innerHTML = count
+        dom.url.items = [...filteredList]
+        dom.count.innerHTML = numberFormat(dom.url.items.length)
     } else {
         // no filters
-        for (const el of dom.url.querySelectorAll('.hidden')) {
-            el.classList.remove('hidden')
-        }
-        dom.count.innerHTML = numberFormat(dom.url.children.length)
+        dom.url.items = [...unfilteredList]
+        dom.count.innerHTML = numberFormat(dom.url.items.length)
     }
 }
 

@@ -97,13 +97,21 @@ async function getUrls(file) {
             encoding: 'utf8',
         })
         const json = JSON.parse(content)
-        let output = {}
+        let output = []
         for (const [url, { status, redirected, isInternal }] of Object.entries(
             json.hits,
         )) {
-            output[url] = { status, redirected, isInternal }
+            output.push({ url, status, redirected, isInternal })
         }
-        output = Object.fromEntries(Object.entries(output).sort())
+        output = output.sort((a, b) => {
+            if (a.url < b.url) {
+                return -1
+            }
+            if (a.url > b.url) {
+                return 1
+            }
+            return 0
+        })
         return output
     } catch (err) {
         console.log(err)

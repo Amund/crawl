@@ -124,8 +124,14 @@ async function getUrl(file, url) {
             encoding: 'utf8',
         })
         const json = JSON.parse(content)
-        if (json.hits[url]) {
-            const output = Object.assign({}, json.hits[url])
+        const hits = json?.hits
+        // const json = await import(path.join(reportsPath, file), {
+        //     assert: { type: 'json' },
+        // })
+        // const hits = json.default.hits
+
+        if (hits && hits[url]) {
+            const output = Object.assign({}, hits[url])
             output.statusText =
                 STATUS_CODES[output?.status.toString() || '999'] || 'Unknown'
             return output

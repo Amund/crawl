@@ -21,10 +21,8 @@ let dom = {
 let unfilteredList
 
 // setup url virtual list template
-dom.url.template = ({ url, status, redirected, isInternal }) =>
-    `<div title="${url}" data-status="${status}" data-internal="${
-        isInternal ? 'true' : 'false'
-    }">${url}</div>`
+dom.url.template = ({ url, status }) =>
+    `<div title="${url}" data-status="${status}">${url}</div>`
 
 // launch new crawl
 dom.crawlStart.addEventListener('click', async () => {
@@ -162,10 +160,10 @@ async function search() {
             if (hidden === false && internal !== '') {
                 switch (internal) {
                     case 'internal':
-                        hidden = row.isInternal === true || false
+                        hidden = row.isInternal === false || false
                         break
                     case 'external':
-                        hidden = row.isInternal === false || false
+                        hidden = row.isInternal === true || false
                         break
                 }
             }

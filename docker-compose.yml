@@ -19,7 +19,7 @@ services:
             - 'traefik.http.routers.$PROJECT.entrypoints=https'
             - 'traefik.http.routers.$PROJECT.tls=true'
         # command: ['tail', '-f', '/dev/null']
-        command: ['npm', 'run', $START]
+        command: './docker-start.sh'
         ports:
             - $PORT:3000
 

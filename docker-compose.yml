@@ -4,6 +4,7 @@ services:
         container_name: app-$PROJECT
         image: node:20-alpine
         restart: unless-stopped
+        user: '${UID}:${GID}'
         env_file: .env
         networks:
             - dev

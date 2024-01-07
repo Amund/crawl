@@ -13,7 +13,7 @@ const app = express()
 const port = 3000
 let child
 
-app.use(express.static('src/public'))
+app.use(express.static('public'))
 
 app.get('/api/crawl/abort', (req, res) => {
     if (child) killProcess(child)

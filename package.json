@@ -8,7 +8,7 @@
         "express": "^4.18.2",
         "fastq": "^1.16.0",
         "pretty-ms": "^8.0.0",
-        "sqlite3": "^5.1.7"
+        "sqlite-async": "^1.2.0"
     },
     "type": "module",
     "scripts": {

@@ -1,7 +1,7 @@
 import { promise as fastq } from 'fastq'
 import { Worker } from 'worker_threads'
 import { URL } from 'node:url'
-
+import Data from './data'
 import os from 'node:os'
 
 // check url argument
@@ -21,6 +21,10 @@ const concurrency = process.env.CONCURRENCY || 1
 const queue = fastq(worker, concurrency)
 const urls = {}
 const tasks = []
+const filename = new URL(startUrl).hostname + '.sqlite'
+const data = new Data()
+await data.open(filename)
+data.prepareLink(startUrl)
 
 urls[startUrl] = 1
 tasks.push(queue.push(startUrl))

@@ -1,49 +1,37 @@
-import formatDate from './lib/format-date.js'
+import * as fs from 'node:fs/promises'
 import { Database } from 'sqlite-async'
 import { createHash } from 'node:crypto'
 import isPlainObject from './lib/is-plain-object.js'
-import * as fs from 'node:fs/promises'
-
-// const timestamp = Date.now()
-// const date = new Date(timestamp)
-// console.log(formatDate(date))
-// const db = new sqlite3.Database('reports/test.sqlite')
-
-// db.serialize(() => {
-//     db.run('CREATE TABLE lorem (info TEXT)')
-
-//     const stmt = db.prepare('INSERT INTO lorem VALUES (?)')
-//     for (let i = 0; i < 10; i++) {
-//         stmt.run('Ipsum ' + i)
-//     }
-//     stmt.finalize()
-
-//     db.each('SELECT rowid AS id, info FROM lorem', (err, row) => {
-//         console.log(row.id + ': ' + row.info)
-//     })
-// })
-
-// db.close()
+import { flatten, unflatten } from 'flat'
 
 export default class Data extends Database {
+    // create schema in current db
     async schema() {
         return super.exec(`
             CREATE TABLE meta ( key TEXT, value TEXT );
-            CREATE TABLE link ( hash TEXT PRIMARY KEY, url TEXT );
+            CREATE TABLE link ( hash TEXT PRIMARY KEY, url TEXT, crawl BOOLEAN);
             CREATE TABLE link_data ( hash TEXT, key TEXT, value TEXT );
+            CREATE INDEX index_link_data_hash ON link_data( hash )
         `)
     }
 
-    async open(path) {
+    // open an existing or a new db
+    async open(path, mode) {
+        if (typeof mode === 'undefined') {
+            mode = Database.OPEN_READWRITE | Database.OPEN_CREATE
+        }
         try {
+            // existing
             await fs.access(path, fs.constants.F_OK)
-            await super.open(path)
+            await super.open(path, mode)
         } catch {
-            await super.open(path)
+            // new
+            await super.open(path, mode)
             await this.schema()
         }
     }
 
+    // save a single meta
     async setMeta(key, value) {
         return super.run(
             'REPLACE INTO meta (key, value) VALUES (?,?)',
@@ -52,14 +40,13 @@ export default class Data extends Database {
         )
     }
 
+    // return a single meta for current db
     async getMeta(key) {
-        return super
-            .get('SELECT value FROM meta WHERE key=?', key)
-            .then((row) => {
-                return row.value
-            })
+        return (await super.get('SELECT value FROM meta WHERE key=?', key))
+            ?.value
     }
 
+    // save current metas
     async setMetas(obj) {
         if (!isPlainObject(obj)) throw new Error('not a plain object')
         const metas = []
@@ -69,6 +56,7 @@ export default class Data extends Database {
         return Promise.all(metas)
     }
 
+    // return a metas object for current db
     async getMetas() {
         return super.all('SELECT key, value FROM meta').then((rows) => {
             const metas = {}
@@ -77,44 +65,70 @@ export default class Data extends Database {
         })
     }
 
-    async setLink(url, data) {
-        if (!isPlainObject(data)) throw new Error('not a valid object')
+    // save or remove a link
+    async setLink(url, data = null) {
         const hash = this.hash(url)
-        const promises = [
-            super.run('REPLACE INTO link (hash, url) VALUES (?,?)', hash, url),
-        ]
-        for (const [key, value] of Object.entries(data)) {
-            promises.push(
+        if (data === null) {
+            // delete
+            return Promise.all([
+                super.run('DELETE FROM link WHERE hash=?', hash),
+                super.run('DELETE FROM link_data WHERE hash=?', hash),
+            ])
+        } else {
+            // replace
+            await this.setLink(url, null)
+            if (!isPlainObject(data)) throw new Error('not a valid object')
+            const flattened = flatten(data)
+            const promises = [
                 super.run(
-                    'REPLACE INTO link_data (hash, key,value) VALUES (?,?,?)',
+                    'INSERT INTO link (hash, url, crawl) VALUES (?,?,?)',
                     hash,
-                    key,
-                    value,
+                    url,
+                    1,
                 ),
-            )
+            ]
+            for (const [key, value] of Object.entries(flattened)) {
+                promises.push(
+                    super.run(
+                        'INSERT INTO link_data (hash, key,value) VALUES (?,?,?)',
+                        hash,
+                        key,
+                        value,
+                    ),
+                )
+            }
+            await Promise.all(promises)
         }
-
-        return Promise.all(promises)
+        return hash
     }
 
-    async setData(hash, key, value) {
-        return super.run(
-            'REPLACE INTO link_data (hash, key, value) VALUES (?,?,?)',
+    // return a link object
+    async getLink(url) {
+        const hash = this.hash(url)
+        const obj = {}
+        await super.each(
+            'SELECT key, value FROM link_data WHERE hash=? ORDER BY key ASC',
             hash,
-            key,
-            value,
+            (err, { key, value }) => {
+                obj[key] = value
+            },
+        )
+        return unflatten(obj)
+    }
+
+    // prepare a link entry to crawl, if not exists
+    async prepareLink(url) {
+        return super.run(
+            'INSERT OR IGNORE INTO link (hash, url, crawl) VALUES (?,?,?)',
+            this.hash(url),
+            url,
+            0,
         )
     }
 
-    async set(obj) {
-        if (!isPlainObject(obj)) throw new Error('not a valid object')
-        for (const [key, value] of Object.entries(obj)) {
-            if (Array.isArray(value)) {
-            } else if (isPlainObject(value)) {
-            } else {
-                await this.setMeta(meta.key, meta.value)
-            }
-        }
+    // return one url to crawl, if exists
+    async nextCrawl(url) {
+        return (await super.get('SELECT url FROM link WHERE crawl=0'))?.url
     }
 
     hash(str) {

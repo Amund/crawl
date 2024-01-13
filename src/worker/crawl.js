@@ -6,26 +6,24 @@ import pretty from 'pretty-ms'
 import formatDate from '../lib/format-date.js'
 // import * as fs from 'node:fs'
 
-const reportsPath = './reports'
 // const filename = url.hostname + '-' + `${y}${m}${d}-${h}${i}${s}.json`
 const timeout = 3000
 
-parentPort.once('message', async (url) => {
-    parentPort.postMessage(await check(url))
+parentPort.once('message', async (o) => {
+    parentPort.postMessage(await check(o))
 })
 
-async function check({ url, isInternal }) {
+async function check({ url, startUrl }) {
     url = url.replace(/#.*/, '')
 
-    const hit = {
-        isInternal,
+    const link = {
+        isInternal: url.startsWith(startUrl),
         error: '',
         status: '',
         redirected: '',
         duration: 0,
         prettyDuration: '',
         headers: {},
-        urls: [],
     }
 
     let response
@@ -33,48 +31,57 @@ async function check({ url, isInternal }) {
     try {
         response = await fetch(url, { timeout })
     } catch (err) {
-        hit.error = err.code
+        link.error = err.code
     }
     performance.mark('fetch-end')
 
     if (response) {
-        hit.status = response.status
-        hit.redirected = response.redirected ? response.url : ''
-        hit.headers = Object.fromEntries(response.headers)
-        hit.duration = performance.measure(
+        link.status = response.status
+        link.redirected = response.redirected ? response.url : ''
+        link.headers = Object.fromEntries(response.headers)
+        link.duration = performance.measure(
             'fetch',
             'fetch-start',
             'fetch-end',
         ).duration
-        hit.prettyDuration = pretty(hit.duration)
+        link.prettyDuration = pretty(link.duration)
 
         if (
             response.ok &&
-            hit.isInternal &&
-            hit.headers['content-type'] &&
-            hit.headers['content-type'].startsWith('text/html')
+            link.isInternal &&
+            link.headers['content-type'] &&
+            link.headers['content-type'].startsWith('text/html')
         ) {
             const $ = cheerio.load(await response.text())
-            const urls = []
+            let urls = {}
             let base = $('head base').attr('href') || url
-            for (const item of $('[href]')) urls.push($(item).attr('href'))
-            for (const item of $('[src]')) urls.push($(item).attr('src'))
-            for (const item of urls) {
-                let link
-                try {
-                    link = new URL(item).toString()
-                } catch (err) {}
-                if (!link) {
-                    try {
-                        link = new URL(item, base).toString()
-                    } catch (err) {}
-                }
-                if (link) {
-                    hit.urls.push(link)
-                }
+            for (const item of $('[href]')) {
+                const url = validUrl($(item).attr('href'), base)
+                if (url && !urls[url]) urls[url] = 1
+            }
+            for (const item of $('[src]')) {
+                const url = validUrl($(item).attr('src'), base)
+                if (url && !urls[url]) urls[url] = 1
+            }
+            urls = Object.keys(urls)
+            if (urls.length) {
+                link.urls = urls
             }
         }
     }
 
-    return hit
+    return { url, link }
+}
+
+function validUrl(url, base) {
+    let checkUrl
+    try {
+        checkUrl = new URL(url).toString()
+    } catch (err) {}
+    if (!checkUrl) {
+        try {
+            checkUrl = new URL(url, base).toString()
+        } catch (err) {}
+    }
+    if (checkUrl && checkUrl.startsWith('http')) return checkUrl
 }

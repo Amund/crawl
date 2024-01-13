@@ -9,9 +9,9 @@ export default class Data extends Database {
     async schema() {
         return super.exec(`
             CREATE TABLE meta ( key TEXT, value TEXT );
-            CREATE TABLE link ( hash TEXT PRIMARY KEY, url TEXT, crawl BOOLEAN);
+            CREATE TABLE link ( hash TEXT PRIMARY KEY, url TEXT);
             CREATE TABLE link_data ( hash TEXT, key TEXT, value TEXT );
-            CREATE INDEX index_link_data_hash ON link_data( hash )
+            CREATE INDEX index_link_data_hash ON link_data( hash );
         `)
     }
 
@@ -76,30 +76,27 @@ export default class Data extends Database {
             ])
         } else {
             // replace
-            await this.setLink(url, null)
+            // await this.setLink(url, null)
             if (!isPlainObject(data)) throw new Error('not a valid object')
             const flattened = flatten(data)
+
             const promises = [
                 super.run(
-                    'INSERT INTO link (hash, url, crawl) VALUES (?,?,?)',
+                    'REPLACE INTO link (hash, url) VALUES (?,?)',
                     hash,
                     url,
-                    1,
                 ),
             ]
+
+            const stmt = await super.prepare(
+                'INSERT INTO link_data (hash, key, value) VALUES (?,?,?)',
+            )
             for (const [key, value] of Object.entries(flattened)) {
-                promises.push(
-                    super.run(
-                        'INSERT INTO link_data (hash, key,value) VALUES (?,?,?)',
-                        hash,
-                        key,
-                        value,
-                    ),
-                )
+                promises.push(stmt.run(hash, key, value))
             }
-            await Promise.all(promises)
+            stmt.finalize()
+            return Promise.all(promises)
         }
-        return hash
     }
 
     // return a link object
@@ -116,19 +113,31 @@ export default class Data extends Database {
         return unflatten(obj)
     }
 
-    // prepare a link entry to crawl, if not exists
-    async prepareLink(url) {
-        return super.run(
-            'INSERT OR IGNORE INTO link (hash, url, crawl) VALUES (?,?,?)',
-            this.hash(url),
-            url,
-            0,
-        )
+    // server: list all urls, with status and type
+    async listUrls() {
+        return await super.all(`
+            SELECT
+                url
+                ,(SELECT value FROM link_data WHERE hash=l.hash AND key="status") AS status
+                ,(SELECT value FROM link_data WHERE hash=l.hash AND key="isInternal") AS isInternal
+            FROM link l
+            ORDER BY url
+        `)
     }
 
-    // return one url to crawl, if exists
-    async nextCrawl(url) {
-        return (await super.get('SELECT url FROM link WHERE crawl=0'))?.url
+    async listReferers(url) {
+        const hash = this.hash(url)
+        return await super.all(
+            `
+            SELECT url
+            FROM link
+            WHERE hash IN (
+                SELECT DISTINCT hash FROM link_data WHERE key LIKE "urls.%" AND value=?
+            )
+            ORDER BY url
+        `,
+            url,
+        )
     }
 
     hash(str) {

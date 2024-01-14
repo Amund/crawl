@@ -1,10 +1,11 @@
 import { promise as fastq } from 'fastq'
-import { Worker } from 'worker_threads'
 import { URL } from 'node:url'
 import Data from './data.js'
 import * as fs from 'node:fs/promises'
 import env from './env.js'
 import { performance } from 'node:perf_hooks'
+import * as cheerio from 'cheerio'
+import pretty from 'pretty-ms'
 
 // check url argument
 let startUrl
@@ -18,11 +19,6 @@ try {
     process.exit(1)
 }
 
-const crawlQueue = fastq(crawlWorker, env.concurrency)
-const tasks = []
-const done = {}
-let count = 0
-
 const filename = `${env.reportsPath}/${new URL(startUrl).hostname}.sqlite`
 try {
     await fs.unlink(filename)
@@ -30,13 +26,22 @@ try {
 
 performance.mark('start')
 const data = new Data()
-await data.open(filename)
+await data.open(filename, Data.OPEN_CREATE | Data.OPEN_READWRITE)
 await data.setMeta('startUrl', startUrl)
 // await data.setMeta('start', performance.getEntriesByName('start'))
 
+const crawlQueue = fastq(crawlWorker, env.concurrency)
+const tasks = []
+const done = {}
+let count = 0
+
 done[startUrl] = 1
 tasks.push(crawlQueue.push({ url: startUrl, startUrl }))
-await allPromise(tasks)
+
+process.on('SIGTERM', async () => await abort('SIGTERM'))
+process.on('SIGINT', async () => await abort('SIGINT'))
+
+await crawlQueue.drained()
 performance.mark('end')
 await data.close()
 console.log('Scan ended')
@@ -44,30 +49,112 @@ process.exit(0)
 
 // Functions
 
-async function crawlWorker(o) {
-    return await new Promise((ok, ko) => {
-        const worker = new Worker('./src/worker/crawl.js')
-        worker.once('message', async ({ url, link }) => {
-            await data.setLink(url, link)
-            if (link?.urls?.length) {
-                for (const next of link.urls) {
-                    if (!done[next]) {
-                        done[next] = 1
-                        tasks.push(crawlQueue.push({ url: next, startUrl }))
-                    }
+async function abort(signal) {
+    // console.info(`${signal} signal received.`)
+    await crawlQueue.kill()
+    performance.mark('end')
+    await data.close()
+    console.log('Scan aborted')
+    process.exit(0)
+}
+
+async function crawlWorker({ url, startUrl }) {
+    return new Promise(async (ok, ko) => {
+        const link = await crawl({ url, startUrl })
+        performance.mark('save-start')
+        await data.setLink(url, link)
+        performance.mark('save-end')
+
+        if (link?.urls?.length) {
+            for (const next of link.urls) {
+                if (!done[next]) {
+                    done[next] = 1
+                    tasks.push(crawlQueue.push({ url: next, startUrl }))
                 }
             }
-            console.log(`Scanning... ${++count} / ${tasks.length}`)
-            ok(1)
-        })
-        worker.postMessage(o)
+        }
+        let duration = performance.measure(
+            'save',
+            'save-start',
+            'save-end',
+        ).duration
+        duration = pretty(duration)
+
+        console.log(`Scanning... ${++count} / ${tasks.length}`)
+        ok()
     })
 }
 
-async function allPromise(iterable) {
-    let resolvedIterable = []
-    while (iterable.length !== resolvedIterable.length) {
-        resolvedIterable = await Promise.allSettled(iterable)
+async function crawl({ url, startUrl }) {
+    url = url.replace(/#.*/, '')
+
+    const link = {
+        isInternal: url.startsWith(startUrl),
+        error: '',
+        status: '',
+        redirected: '',
+        duration: 0,
+        prettyDuration: '',
+        headers: {},
     }
-    return resolvedIterable
+
+    let response
+    const timeout = env.fetch_timeout
+    performance.mark('fetch-start')
+    try {
+        response = await fetch(url, { timeout })
+    } catch (err) {
+        link.error = err.code
+    }
+    performance.mark('fetch-end')
+
+    if (response) {
+        link.status = response.status
+        link.redirected = response.redirected ? response.url : ''
+        link.headers = Object.fromEntries(response.headers)
+        link.duration = performance.measure(
+            'fetch',
+            'fetch-start',
+            'fetch-end',
+        ).duration
+        link.prettyDuration = pretty(link.duration)
+
+        if (
+            response.ok &&
+            link.isInternal &&
+            link.headers['content-type'] &&
+            link.headers['content-type'].startsWith('text/html')
+        ) {
+            const $ = cheerio.load(await response.text())
+            let urls = {}
+            let base = $('head base').attr('href') || url
+            for (const item of $('[href]')) {
+                const url = validUrl($(item).attr('href'), base)
+                if (url && !urls[url]) urls[url] = 1
+            }
+            for (const item of $('[src]')) {
+                const url = validUrl($(item).attr('src'), base)
+                if (url && !urls[url]) urls[url] = 1
+            }
+            urls = Object.keys(urls)
+            if (urls.length) {
+                link.urls = urls
+            }
+        }
+    }
+
+    return link
+}
+
+function validUrl(url, base) {
+    let checkUrl
+    try {
+        checkUrl = new URL(url).toString()
+    } catch (err) {}
+    if (!checkUrl) {
+        try {
+            checkUrl = new URL(url, base).toString()
+        } catch (err) {}
+    }
+    if (checkUrl && checkUrl.startsWith('http')) return checkUrl
 }

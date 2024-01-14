@@ -29,8 +29,10 @@ dom.crawlStart.addEventListener('click', async () => {
     if (dom.crawlUrl.value.trim() === '') {
         dom.crawlUrl.style.borderColor = '#ff0039'
     } else {
+        dom.crawlUrl.disabled = true
         dom.crawlUrl.style.borderColor = 'var(--border)'
         dom.crawlStop.style.display = 'block'
+        dom.crawlStop.disabled = false
         dom.crawlStart.style.display = 'none'
 
         const evtSource = new EventSource(
@@ -57,7 +59,10 @@ dom.crawlStart.addEventListener('click', async () => {
 
 // abort running crawl
 dom.crawlStop.addEventListener('click', async () => {
+    dom.crawlUrl.disabled = false
+    dom.crawlStop.disabled = true
     const response = await fetch('api/crawl/abort')
+    updateReports()
 })
 
 // on load, populate reports select

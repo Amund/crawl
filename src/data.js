@@ -12,6 +12,7 @@ export default class Data extends Database {
             CREATE TABLE link ( hash TEXT PRIMARY KEY, url TEXT);
             CREATE TABLE link_data ( hash TEXT, key TEXT, value TEXT );
             CREATE INDEX index_link_data_hash ON link_data( hash );
+            CREATE UNIQUE INDEX index_link_data_hash_key ON link_data( hash, key );
         `)
     }
 
@@ -68,35 +69,28 @@ export default class Data extends Database {
     // save or remove a link
     async setLink(url, data = null) {
         const hash = this.hash(url)
+        const sql = []
         if (data === null) {
             // delete
-            return Promise.all([
-                super.run('DELETE FROM link WHERE hash=?', hash),
-                super.run('DELETE FROM link_data WHERE hash=?', hash),
-            ])
+            sql.push(`DELETE FROM link WHERE hash="${hash}";`)
+            sql.push(`DELETE FROM link_data WHERE hash="${hash}";`)
         } else {
             // replace
             // await this.setLink(url, null)
             if (!isPlainObject(data)) throw new Error('not a valid object')
             const flattened = flatten(data)
-
-            const promises = [
-                super.run(
-                    'REPLACE INTO link (hash, url) VALUES (?,?)',
-                    hash,
-                    url,
-                ),
-            ]
-
-            const stmt = await super.prepare(
-                'INSERT INTO link_data (hash, key, value) VALUES (?,?,?)',
+            sql.push(
+                `REPLACE INTO link (hash, url) VALUES ("${hash}","${url}");`,
             )
             for (const [key, value] of Object.entries(flattened)) {
-                promises.push(stmt.run(hash, key, value))
+                sql.push(
+                    `REPLACE INTO link_data (hash, key, value) VALUES ("${hash}","${key}","${this.esc(
+                        value,
+                    )}");`,
+                )
             }
-            stmt.finalize()
-            return Promise.all(promises)
         }
+        return super.exec(sql.join(''))
     }
 
     // return a link object
@@ -142,5 +136,9 @@ export default class Data extends Database {
 
     hash(str) {
         return createHash('md5', 0).update(str, 'binary').digest('hex')
+    }
+
+    esc(v) {
+        return String(v).replace(/"/g, '""')
     }
 }

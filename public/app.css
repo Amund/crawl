@@ -72,6 +72,10 @@ a {
     }
 }
 
+:disabled {
+    opacity: 0.5;
+}
+
 [is='virtual-list'] {
     overflow-y: auto;
     height: 200px;
@@ -129,15 +133,18 @@ a {
     .crawl-start,
     .crawl-stop {
         appearance: none;
-        background-color: var(--back);
-        color: var(--front);
+        background-color: darkgreen;
         border: 1px solid var(--border);
+        color: #fff;
         padding: 8px 10px;
+
+        &:not(:disabled):hover {
+            border: 1px solid orange;
+        }
     }
 
     .crawl-stop {
-        background-color: #ff0039;
-        color: #fff;
+        background-color: darkred;
         display: none;
     }
 

@@ -97,7 +97,6 @@ async function crawl({ url, startUrl }) {
         redirected: '',
         duration: 0,
         prettyDuration: '',
-        headers: {},
     }
 
     let response
@@ -106,7 +105,7 @@ async function crawl({ url, startUrl }) {
     try {
         response = await fetch(url, { timeout })
     } catch (err) {
-        link.error = err.code
+        link.error = err.code || 999
     }
     performance.mark('fetch-end')
 

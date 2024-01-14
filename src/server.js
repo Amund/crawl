@@ -1,19 +1,16 @@
 import express from 'express'
-import * as url from 'node:url'
 import * as path from 'node:path'
 import * as fs from 'node:fs/promises'
 import { STATUS_CODES } from 'node:http'
 import { spawn } from 'node:child_process'
-
-const __filename = url.fileURLToPath(import.meta.url)
-const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
-const reportsPath = path.join(__dirname, '..', 'reports')
+import env from './env.js'
+import Data from './data.js'
 
 const app = express()
 const port = 3000
 let child
 
-app.use(express.static('src/public'))
+app.use(express.static('public'))
 
 app.get('/api/crawl/abort', (req, res) => {
     if (child) killProcess(child)
@@ -67,15 +64,18 @@ app.get('/api/crawl/:url', (req, res) => {
 })
 
 app.get('/api/reports', async (req, res) =>
-    res.json(await getReports(reportsPath)),
+    res.json(await getReports(env.reportsPath)),
 )
 
 app.get('/api/reports/:file', async (req, res) => {
-    res.json(await getUrls(req.params.file))
+    const file = `${env.reportsPath}/${req.params.file}${env.dbExt}`
+    res.json(await getUrls(file))
 })
 
 app.get('/api/reports/:file/:url', async (req, res) => {
-    res.json(await getUrl(req.params.file, atob(req.params.url)))
+    const file = `${env.reportsPath}/${req.params.file}${env.dbExt}`
+    const url = atob(req.params.url)
+    res.json(await getUrl(file, url))
 })
 
 app.listen(port, () => {
@@ -85,60 +85,46 @@ app.listen(port, () => {
 async function getReports(path) {
     try {
         const reports = await fs.readdir(path)
-        return reports.filter((v) => /\.json$/.test(v))
+        const regex = new RegExp(`\\${env.dbExt}$`)
+        return reports
+            .filter((v) => regex.test(v))
+            .map((v) => v.replace(regex, ''))
     } catch (err) {
         console.log(err)
     }
 }
 
 async function getUrls(file) {
-    try {
-        const content = await fs.readFile(path.join(reportsPath, file), {
-            encoding: 'utf8',
-        })
-        const json = JSON.parse(content)
-        let output = []
-        for (const [url, { status, redirected, isInternal }] of Object.entries(
-            json.hits,
-        )) {
-            output.push({ url, status, redirected, isInternal })
-        }
-        output = output.sort((a, b) => {
-            if (a.url < b.url) {
-                return -1
-            }
-            if (a.url > b.url) {
-                return 1
-            }
-            return 0
-        })
-        return output
-    } catch (err) {
-        console.log(err)
-    }
+    const data = new Data()
+    await data.open(file, Data.OPEN_READONLY)
+    const output = await data.listUrls()
+    await data.close()
+    return output
 }
 
 async function getUrl(file, url) {
-    try {
-        const content = await fs.readFile(path.join(reportsPath, file), {
-            encoding: 'utf8',
-        })
-        const json = JSON.parse(content)
-        const hits = json?.hits
-        // const json = await import(path.join(reportsPath, file), {
-        //     assert: { type: 'json' },
-        // })
-        // const hits = json.default.hits
+    const data = new Data()
+    await data.open(file, Data.OPEN_READONLY)
+    const output = await data.getLink(url)
+    output.referers = (await data.listReferers(url)).map((row) => row.url)
+    await data.close()
+    return output
+    // const content = await fs.readFile(path.join(reportsPath, file), {
+    //     encoding: 'utf8',
+    // })
+    // const json = JSON.parse(content)
+    // const hits = json?.hits
+    // // const json = await import(path.join(reportsPath, file), {
+    // //     assert: { type: 'json' },
+    // // })
+    // // const hits = json.default.hits
 
-        if (hits && hits[url]) {
-            const output = Object.assign({}, hits[url])
-            output.statusText =
-                STATUS_CODES[output?.status.toString() || '999'] || 'Unknown'
-            return output
-        }
-    } catch (err) {
-        console.log(err)
-    }
+    // if (hits && hits[url]) {
+    //     const output = Object.assign({}, hits[url])
+    //     output.statusText =
+    //         STATUS_CODES[output?.status.toString() || '999'] || 'Unknown'
+    //     return output
+    // }
 }
 
 function btoa(text) {

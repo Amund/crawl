@@ -92,8 +92,8 @@ async function crawl({ url, startUrl }) {
     const link = {
         type: url.startsWith(startUrl) ? 'internal' : 'external',
         error: '',
-        status: '',
-        statusText: '',
+        status: '999',
+        statusText: 'Unknown',
         redirected: '',
         duration: 0,
         prettyDuration: '',

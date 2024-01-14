@@ -113,7 +113,7 @@ export default class Data extends Database {
             SELECT
                 url
                 ,(SELECT value FROM link_data WHERE hash=l.hash AND key="status") AS status
-                ,(SELECT value FROM link_data WHERE hash=l.hash AND key="isInternal") AS isInternal
+                ,(SELECT value FROM link_data WHERE hash=l.hash AND key="type") AS type
             FROM link l
             ORDER BY url
         `)

@@ -52,6 +52,7 @@ dom.crawlStart.addEventListener('click', async () => {
             evtSource.close()
             dom.crawlStop.style.display = 'none'
             dom.crawlStart.style.display = 'block'
+            dom.crawlUrl.disabled = false
             updateReports()
         })
     }
@@ -165,10 +166,10 @@ async function search() {
             if (hidden === false && internal !== '') {
                 switch (internal) {
                     case 'internal':
-                        hidden = row.isInternal === false || false
+                        hidden = row.type !== 'internal' || false
                         break
                     case 'external':
-                        hidden = row.isInternal === true || false
+                        hidden = row.type !== 'external' || false
                         break
                 }
             }

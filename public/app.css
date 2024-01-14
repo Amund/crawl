@@ -132,19 +132,20 @@ a {
 
     .crawl-start,
     .crawl-stop {
+        --color: darkgreen;
         appearance: none;
-        background-color: darkgreen;
+        background-color: var(--color);
         border: 1px solid var(--border);
         color: #fff;
         padding: 8px 10px;
 
         &:not(:disabled):hover {
-            border: 1px solid orange;
+            border: 1px solid #fff;
         }
     }
 
     .crawl-stop {
-        background-color: darkred;
+        --color: darkred;
         display: none;
     }
 

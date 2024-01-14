@@ -6,6 +6,7 @@ import env from './env.js'
 import { performance } from 'node:perf_hooks'
 import * as cheerio from 'cheerio'
 import pretty from 'pretty-ms'
+import { STATUS_CODES } from 'node:http'
 
 // check url argument
 let startUrl
@@ -89,9 +90,10 @@ async function crawl({ url, startUrl }) {
     url = url.replace(/#.*/, '')
 
     const link = {
-        isInternal: url.startsWith(startUrl),
+        type: url.startsWith(startUrl) ? 'internal' : 'external',
         error: '',
         status: '',
+        statusText: '',
         redirected: '',
         duration: 0,
         prettyDuration: '',
@@ -110,6 +112,8 @@ async function crawl({ url, startUrl }) {
 
     if (response) {
         link.status = response.status
+        link.statusText =
+            STATUS_CODES[String(response.status) || '999'] || 'Unknown'
         link.redirected = response.redirected ? response.url : ''
         link.headers = Object.fromEntries(response.headers)
         link.duration = performance.measure(
@@ -121,7 +125,7 @@ async function crawl({ url, startUrl }) {
 
         if (
             response.ok &&
-            link.isInternal &&
+            link.type === 'internal' &&
             link.headers['content-type'] &&
             link.headers['content-type'].startsWith('text/html')
         ) {

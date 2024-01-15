@@ -79,7 +79,7 @@ app.get('/api/reports/:file/:url', async (req, res) => {
     try {
         const file = `${env.reportsPath}/${req.params.file}${env.dbExt}`
         const url = atob(req.params.url)
-        res.json(await getUrl(file, url))
+        res.json(getUrl(file, url))
     } catch (err) {}
 })
 
@@ -99,20 +99,18 @@ async function getReports(path) {
     }
 }
 
-async function getUrls(file) {
-    const data = new Data()
-    await data.open(file, Data.OPEN_READONLY)
-    const output = await data.listUrls()
-    await data.close()
+function getUrls(filename) {
+    const data = new Data(filename, { readonly: true })
+    const output = data.listUrls()
+    data.close()
     return output
 }
 
-async function getUrl(file, url) {
-    const data = new Data()
-    await data.open(file, Data.OPEN_READONLY)
-    const output = await data.getLink(url)
-    output.referers = (await data.listReferers(url)).map((row) => row.url)
-    await data.close()
+function getUrl(filename, url) {
+    const data = new Data(filename, { readonly: true })
+    const output = data.getLink(url)
+    output.referers = data.listReferers(url).map((row) => row.url)
+    data.close()
     return output
 }
 

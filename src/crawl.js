@@ -26,9 +26,10 @@ try {
 } catch (err) {}
 
 performance.mark('start')
-const data = new Data()
-await data.open(filename, Data.OPEN_CREATE | Data.OPEN_READWRITE)
-await data.setMeta('startUrl', startUrl)
+const data = new Data(':memory:')
+// const data = new Data(filename)
+data.schema()
+data.setMeta('startUrl', startUrl)
 // await data.setMeta('start', performance.getEntriesByName('start'))
 
 const crawlQueue = fastq(crawlWorker, env.concurrency)
@@ -44,6 +45,7 @@ process.on('SIGINT', async () => await abort('SIGINT'))
 
 await crawlQueue.drained()
 performance.mark('end')
+await backup(data, filename)
 await data.close()
 console.log('Scan ended')
 process.exit(0)
@@ -53,17 +55,22 @@ process.exit(0)
 async function abort(signal) {
     // console.info(`${signal} signal received.`)
     await crawlQueue.kill()
+    await backup(data, filename)
     performance.mark('end')
     await data.close()
     console.log('Scan aborted')
     process.exit(0)
 }
 
+async function backup(db, filename) {
+    await db.backup(filename)
+}
+
 async function crawlWorker({ url, startUrl }) {
     return new Promise(async (ok, ko) => {
         const link = await crawl({ url, startUrl })
         performance.mark('save-start')
-        await data.setLink(url, link)
+        data.setLink(url, link)
         performance.mark('save-end')
 
         if (link?.urls?.length) {

@@ -1,0 +1,42 @@
+env:
+    browser: true
+    node: true
+    es6: true
+    es2021: true
+
+extends:
+    - eslint:recommended
+    - plugin:prettier/recommended
+    - prettier
+
+plugins:
+    - prettier
+
+parserOptions:
+    ecmaVersion: latest
+    sourceType: module
+
+rules:
+    prettier/prettier:
+        - error
+        - singleQuote: true
+        - semi: false
+    indent:
+        - error
+        - 4
+        - SwitchCase: 1
+    quotes:
+        - 2
+        - single
+        - avoid-escape
+    semi:
+        - error
+        - never
+    prefer-const:
+        - error
+        - destructuring: all
+    no-restricted-syntax:
+        - error
+        - ForInStatement
+        - LabeledStatement
+        - WithStatement

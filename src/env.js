@@ -1,25 +1,25 @@
-import * as path from 'node:path'
-import os from 'node:os'
-import * as url from 'node:url'
+import { resolve } from 'node:path'
+// import os from 'node:os'
 
-const __filename = url.fileURLToPath(import.meta.url)
-const __dirname = url.fileURLToPath(new URL('.', import.meta.url))
-const reportsPath = process.env.REPORTS || './reports'
+const hostname = process.env.HOSTNAME || 'localhost'
+const port = process.env.PORT || 3300
+
+const rootPath = process.cwd()
+const reportsPath = resolve(rootPath, process.env.REPORTS || './reports')
 // const concurrency =
 //     (process.env.CONCURRENCY === 'auto'
 //         ? os.cpus().length - 2 // server, crawl
 //         : process.env.CONCURRENCY) || 1
 const concurrency = 10
-const dbExt = '.sqlite'
-const fetch_timeout = 3000
+const dbExt = 'db'
 
 const env = {
-    __filename,
-    __dirname,
+    hostname,
+    port,
+    rootPath,
     reportsPath,
     concurrency,
     dbExt,
-    fetch_timeout,
 }
 export default env
 

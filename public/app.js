@@ -36,7 +36,7 @@ dom.crawlStart.addEventListener('click', async () => {
         dom.crawlStart.style.display = 'none'
 
         const evtSource = new EventSource(
-            `api/crawl/${btoa(dom.crawlUrl.value)}`,
+            `api/scan/${btoa(dom.crawlUrl.value)}`,
         )
         evtSource.addEventListener('open', (e) => {
             // console.log('EventSource open.', e)
@@ -62,7 +62,7 @@ dom.crawlStart.addEventListener('click', async () => {
 dom.crawlStop.addEventListener('click', async () => {
     dom.crawlUrl.disabled = false
     dom.crawlStop.disabled = true
-    const response = await fetch('api/crawl/abort')
+    const response = await fetch('api/scan/abort')
     updateReports()
 })
 

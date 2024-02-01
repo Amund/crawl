@@ -1,21 +1,41 @@
 {
+    "name": "@amundsan/crawl",
+    "version": "0.0.1",
+    "description": "CLI to crawl website",
+    "keywords": [
+        "web",
+        "crawler",
+        "scan",
+        "site",
+        "url",
+        "referer"
+    ],
+    "author": "Dimitri Avenel",
+    "license": "MIT",
+    "type": "module",
+    "main": "./src/cli.js",
+    "bin": {
+        "crawl": "./src/cli.js"
+    },
     "devDependencies": {
+        "eslint": "^8.56.0",
+        "eslint-config-prettier": "^9.1.0",
+        "eslint-plugin-prettier": "^5.1.3",
         "nodemon": "^3.0.2",
         "prettier": "^3.1.1"
     },
     "dependencies": {
         "better-sqlite3": "^9.2.2",
         "cheerio": "^1.0.0-rc.12",
+        "commander": "^11.1.0",
         "express": "^4.18.2",
         "fastq": "^1.16.0",
         "flat": "^6.0.1",
         "pretty-ms": "^8.0.0"
     },
-    "type": "module",
     "scripts": {
-        "crawl": "node src/crawl.js",
-        "debug": "node --inspect-brk src/crawl.js",
-        "serve": "node src/server.js",
-        "watch": "nodemon --watch 'src/**/*' --exec 'node src/server.js'"
+        "scan": "node src/cli.js scan",
+        "serve": "node src/cli.js serve",
+        "watch": "nodemon --watch 'src/**/*' --exec 'src/cli.js serve'"
     }
 }

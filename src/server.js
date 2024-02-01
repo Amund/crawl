@@ -4,17 +4,16 @@ import { spawn } from 'node:child_process'
 import env from './env.js'
 import Data from './data.js'
 
-const app = express()
-const port = 3000
+const server = express()
 let child
 
-app.use(express.static('public'))
+server.use(express.static('public'))
 
-app.get('/api/crawl/abort', (req, res) => {
+server.get('/api/scan/abort', () => {
     if (child) killProcess(child)
 })
 
-app.get('/api/crawl/:url', (req, res) => {
+server.get('/api/scan/:url', (req, res) => {
     const crawlUrl = atob(req.params.url)
 
     res.writeHead(200, {
@@ -24,12 +23,13 @@ app.get('/api/crawl/:url', (req, res) => {
     })
 
     if (child) killProcess(child)
-    child = spawn('node', ['src/crawl.js', crawlUrl])
+    child = spawn('node', ['src/cli.js', 'scan', crawlUrl])
 
     let str = ''
     child.stdout.on('data', function (data) {
         str += data.toString()
         var lines = str.split('\n')
+        // eslint-disable-next-line no-restricted-syntax
         for (var i in lines) {
             if (i == lines.length - 1) {
                 str = lines[i]
@@ -46,51 +46,49 @@ app.get('/api/crawl/:url', (req, res) => {
         res.end()
     })
 
-    child.on('spawn', () => {
-        // console.log('process spawn')
-    })
     child.on('error', (err) => {
         console.log('process error', err)
     })
-    child.on('exit', (code) => {
-        // console.log('process exit', code)
-    })
-    child.on('close', (code) => {
-        // console.log('process close', code)
+
+    child.on('close', () => {
         res.end()
         killProcess(child)
     })
 })
 
-app.get('/api/reports', async (req, res) => {
+server.get('/api/reports', async (req, res) => {
     try {
         res.json(await getReports(env.reportsPath))
-    } catch (err) {}
+    } catch (err) {
+        // do not matter
+    }
 })
 
-app.get('/api/reports/:file', async (req, res) => {
+server.get('/api/reports/:file', async (req, res) => {
     try {
-        const file = `${env.reportsPath}/${req.params.file}${env.dbExt}`
+        const file = `${env.reportsPath}/${req.params.file}.${env.dbExt}`
         res.json(await getUrls(file))
-    } catch (err) {}
+    } catch (err) {
+        // do not matter
+    }
 })
 
-app.get('/api/reports/:file/:url', async (req, res) => {
+server.get('/api/reports/:file/:url', async (req, res) => {
     try {
-        const file = `${env.reportsPath}/${req.params.file}${env.dbExt}`
+        const file = `${env.reportsPath}/${req.params.file}.${env.dbExt}`
         const url = atob(req.params.url)
         res.json(getUrl(file, url))
-    } catch (err) {}
+    } catch (err) {
+        // do not matter
+    }
 })
 
-app.listen(port, () => {
-    console.log(`Crawl listening on port ${port}...`)
-})
+export { server }
 
 async function getReports(path) {
     try {
         const reports = await fs.readdir(path)
-        const regex = new RegExp(`\\${env.dbExt}$`)
+        const regex = new RegExp(`\\.${env.dbExt}$`)
         return reports
             .filter((v) => regex.test(v))
             .map((v) => v.replace(regex, ''))
@@ -114,10 +112,10 @@ function getUrl(filename, url) {
     return output
 }
 
-function btoa(text) {
-    const buffer = Buffer.from(text, 'binary')
-    return buffer.toString('base64')
-}
+// function btoa(text) {
+//     const buffer = Buffer.from(text, 'binary')
+//     return buffer.toString('base64')
+// }
 
 function atob(base64) {
     const buffer = Buffer.from(base64, 'base64')

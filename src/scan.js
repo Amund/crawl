@@ -8,57 +8,72 @@ import * as cheerio from 'cheerio'
 import pretty from 'pretty-ms'
 import { STATUS_CODES } from 'node:http'
 
-// check url argument
-let startUrl
-try {
-    if (!process.argv[2]) {
-        throw new Error('Must pass a base URL to crawl')
-    }
-    startUrl = new URL(process.argv[2]).toString()
-} catch (err) {
-    console.log(err.message)
-    process.exit(1)
-}
+// export const wait = async (ms) => {
+//     return new Promise((ok) => setTimeout(ok, ms || 1000))
+// }
 
-const filename = `${env.reportsPath}/${new URL(startUrl).hostname}.sqlite`
-try {
-    await fs.unlink(filename)
-} catch (err) {}
+// fix temporary MaxListenersExceededWarning
+process.removeAllListeners('warning')
 
-performance.mark('start')
-const data = new Data(':memory:')
-// const data = new Data(filename)
-data.schema()
-data.setMeta('startUrl', startUrl)
-// await data.setMeta('start', performance.getEntriesByName('start'))
-
-const crawlQueue = fastq(crawlWorker, env.concurrency)
+let data
+const scanQueue = fastq(scanWorker, env.concurrency)
 const tasks = []
 const done = {}
 let count = 0
 
-done[startUrl] = 1
-tasks.push(crawlQueue.push({ url: startUrl, startUrl }))
+export const scan = async (startUrl, options) => {
+    let hostname
+    try {
+        startUrl = new URL(startUrl)
+        startUrl.hash = ''
+        hostname = startUrl.hostname
+        startUrl = startUrl.toString()
+    } catch (err) {
+        console.log(err.message)
+        process.exit(1)
+    }
 
-process.on('SIGTERM', async () => await abort('SIGTERM'))
-process.on('SIGINT', async () => await abort('SIGINT'))
+    const filename = `${env.reportsPath}/${hostname}.${env.dbExt}`
+    if (options.single) {
+        // single scan
+    } else {
+        // complete scan
+        try {
+            await fs.unlink(filename)
+        } catch (err) {
+            // lazy unlink
+        }
 
-await crawlQueue.drained()
-performance.mark('end')
-await backup(data, filename)
-await data.close()
-console.log('Scan ended')
-process.exit(0)
+        performance.mark('start')
+        data = options.memory ? new Data(':memory:') : new Data(filename)
+        data.schema()
+        data.setMeta('startUrl', startUrl)
+        // await data.setMeta('start', performance.getEntriesByName('start'))
+
+        done[startUrl] = 1
+        tasks.push(scanQueue.push({ url: startUrl, startUrl }))
+
+        process.on('SIGTERM', async () => await abort(filename))
+        process.on('SIGINT', async () => await abort(filename))
+
+        await scanQueue.drained()
+        performance.mark('end')
+        if (options.memory) await backup(data, filename)
+        await data.close()
+        console.log('ended.')
+        process.exit(0)
+    }
+}
 
 // Functions
 
-async function abort(signal) {
+async function abort(filename) {
     // console.info(`${signal} signal received.`)
-    await crawlQueue.kill()
+    await scanQueue.kill()
     await backup(data, filename)
     performance.mark('end')
     await data.close()
-    console.log('Scan aborted')
+    console.log('aborted.')
     process.exit(0)
 }
 
@@ -66,9 +81,8 @@ async function backup(db, filename) {
     await db.backup(filename)
 }
 
-async function crawlWorker({ url, startUrl }) {
-    return new Promise(async (ok, ko) => {
-        const link = await crawl({ url, startUrl })
+async function scanWorker({ url, startUrl }) {
+    return doScan({ url, startUrl }).then((link) => {
         performance.mark('save-start')
         data.setLink(url, link)
         performance.mark('save-end')
@@ -77,23 +91,19 @@ async function crawlWorker({ url, startUrl }) {
             for (const next of link.urls) {
                 if (!done[next]) {
                     done[next] = 1
-                    tasks.push(crawlQueue.push({ url: next, startUrl }))
+                    tasks.push(scanQueue.push({ url: next, startUrl }))
                 }
             }
         }
-        let duration = performance.measure(
-            'save',
-            'save-start',
-            'save-end',
-        ).duration
-        duration = pretty(duration)
+        // const duration = pretty(
+        //     performance.measure('save', 'save-start', 'save-end').duration,
+        // )
 
         console.log(`Scanning... ${++count} / ${tasks.length}`)
-        ok()
     })
 }
 
-async function crawl({ url, startUrl }) {
+async function doScan({ url, startUrl }) {
     url = url.replace(/#.*/, '')
 
     const link = {
@@ -137,7 +147,7 @@ async function crawl({ url, startUrl }) {
         ) {
             const $ = cheerio.load(await response.text())
             let urls = {}
-            let base = $('head base').attr('href') || url
+            const base = $('head base').attr('href') || url
             for (const item of $('[href]')) {
                 const url = validUrl($(item).attr('href'), base)
                 if (url && !urls[url]) urls[url] = 1
@@ -159,12 +169,20 @@ async function crawl({ url, startUrl }) {
 function validUrl(url, base) {
     let checkUrl
     try {
-        checkUrl = new URL(url).toString()
-    } catch (err) {}
+        checkUrl = new URL(url)
+        checkUrl.hash = ''
+        checkUrl = checkUrl.toString()
+    } catch (err) {
+        // do not matter
+    }
     if (!checkUrl) {
         try {
-            checkUrl = new URL(url, base).toString()
-        } catch (err) {}
+            checkUrl = new URL(url, base)
+            checkUrl.hash = ''
+            checkUrl = checkUrl.toString()
+        } catch (err) {
+            // do not matter
+        }
     }
-    if (checkUrl && checkUrl.startsWith('http')) return checkUrl
+    return checkUrl && checkUrl.startsWith('http') ? checkUrl : null
 }

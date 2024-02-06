@@ -28,40 +28,40 @@ export const scan = async (startUrl, options) => {
         startUrl.hash = ''
         hostname = startUrl.hostname
         startUrl = startUrl.toString()
+
+        const filename = `${env.reportsPath}/${hostname}.${env.dbExt}`
+        if (options.single) {
+            // single scan
+        } else {
+            // complete scan
+            try {
+                await fs.unlink(filename)
+            } catch (err) {
+                // lazy unlink
+            }
+
+            performance.mark('start')
+            data = options.memory ? new Data(':memory:') : new Data(filename)
+            data.schema()
+            data.setMeta('startUrl', startUrl)
+            // await data.setMeta('start', performance.getEntriesByName('start'))
+
+            done[startUrl] = 1
+            tasks.push(scanQueue.push({ url: startUrl, startUrl }))
+
+            process.on('SIGTERM', async () => await abort(filename))
+            process.on('SIGINT', async () => await abort(filename))
+
+            await scanQueue.drained()
+            performance.mark('end')
+            if (options.memory) await backup(data, filename)
+            await data.close()
+            console.log('ended.')
+            process.exitCode = 0
+        }
     } catch (err) {
         console.log(err.message)
-        process.exit(1)
-    }
-
-    const filename = `${env.reportsPath}/${hostname}.${env.dbExt}`
-    if (options.single) {
-        // single scan
-    } else {
-        // complete scan
-        try {
-            await fs.unlink(filename)
-        } catch (err) {
-            // lazy unlink
-        }
-
-        performance.mark('start')
-        data = options.memory ? new Data(':memory:') : new Data(filename)
-        data.schema()
-        data.setMeta('startUrl', startUrl)
-        // await data.setMeta('start', performance.getEntriesByName('start'))
-
-        done[startUrl] = 1
-        tasks.push(scanQueue.push({ url: startUrl, startUrl }))
-
-        process.on('SIGTERM', async () => await abort(filename))
-        process.on('SIGINT', async () => await abort(filename))
-
-        await scanQueue.drained()
-        performance.mark('end')
-        if (options.memory) await backup(data, filename)
-        await data.close()
-        console.log('ended.')
-        process.exit(0)
+        process.exitCode = 1
     }
 }
 

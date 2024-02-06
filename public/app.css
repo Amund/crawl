@@ -54,6 +54,31 @@ body {
     height: 100%;
     box-sizing: border-box;
     border: 1px solid var(--border);
+
+    &[data-status='pending'] {
+        opacity: 0.5;
+
+        & input,
+        & button,
+        & select {
+            pointer-events: none;
+        }
+
+        & .crawl-stop {
+            display: none;
+        }
+    }
+
+    &[data-status='scanning'] {
+        & .crawl-start {
+            display: none;
+        }
+    }
+    &[data-status='ready'] {
+        & .crawl-stop {
+            display: none;
+        }
+    }
 }
 
 input,
@@ -135,21 +160,14 @@ a {
         --color: darkgreen;
         appearance: none;
         background-color: var(--color);
-        border: 1px solid var(--border);
         color: #fff;
         padding: 8px 10px;
-
-        &:not(:disabled):hover {
-            border: 1px solid #fff;
-        }
+        border: 1px solid #fff;
     }
 
     .crawl-stop {
         --color: darkred;
-        display: none;
     }
-
-    /* border: 1px solid var(--border); */
 }
 
 .report {

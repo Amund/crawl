@@ -6,7 +6,10 @@ import cmdParse from './lib/cmd-parse.js'
 import env from './env.js'
 // import { exec, spawn } from 'child_process'
 
-const pkg = JSON.parse(await fs.readFile('./package.json'))
+process.on('SIGTERM', async () => process.exit(0))
+process.on('SIGINT', async () => process.exit(0))
+
+const pkg = JSON.parse(await fs.readFile(`${env.rootPath}/package.json`))
 const program = new Command()
 program.name('crawl').description(pkg.description).version(pkg.version)
 
@@ -42,9 +45,10 @@ program
         server.listen(port, () => {
             console.log(`Crawl server listening on port ${port}...`)
         })
-
-        process.on('SIGTERM', async () => process.exit(0))
-        process.on('SIGINT', async () => process.exit(0))
     })
+
+program.command('serve-test').action(async () => {
+    await import('./server/index.js')
+})
 
 program.parse()

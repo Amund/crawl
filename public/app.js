@@ -1,10 +1,11 @@
 import 'https://cdn.jsdelivr.net/npm/@amundsan/virtual-list'
 
 const qs = (v) => document.querySelector(v)
-const qsa = (v) => document.querySelectorAll(v)
+// const qsa = (v) => document.querySelectorAll(v)
 const numberFormat = (v) => new Intl.NumberFormat('fr-FR').format(v)
 
-let dom = {
+const dom = {
+    body: document.body,
     crawlUrl: qs('.crawl-url'),
     crawlStart: qs('.crawl-start'),
     crawlStop: qs('.crawl-stop'),
@@ -18,7 +19,7 @@ let dom = {
     detail: qs('.detail'),
 }
 
-let unfilteredList
+let unfilteredList, evtSource
 
 // setup url virtual list template
 dom.url.template = ({ url, status }) =>
@@ -26,49 +27,61 @@ dom.url.template = ({ url, status }) =>
 
 // launch new crawl
 dom.crawlStart.addEventListener('click', async () => {
-    if (dom.crawlUrl.value.trim() === '') {
-        dom.crawlUrl.style.borderColor = '#ff0039'
-    } else {
-        dom.crawlUrl.disabled = true
-        dom.crawlUrl.style.borderColor = 'var(--border)'
-        dom.crawlStop.style.display = 'block'
-        dom.crawlStop.disabled = false
-        dom.crawlStart.style.display = 'none'
-
-        const evtSource = new EventSource(
-            `api/scan/${btoa(dom.crawlUrl.value)}`,
-        )
-        evtSource.addEventListener('open', (e) => {
-            // console.log('EventSource open.', e)
-            dom.crawlStop.style.display = 'block'
-            dom.crawlStart.style.display = 'none'
+    if (dom.crawlUrl.value.trim() !== '') {
+        dom.body.dataset.status = 'pending'
+        if (evtSource && evtSource.readyState !== EventSource.CLOSED) {
+            evtSource.close()
+            evtSource = null
+        }
+        evtSource = new EventSource(`api/scan/${btoa(dom.crawlUrl.value)}`)
+        evtSource.addEventListener('open', () => {
+            dom.body.dataset.status = 'scanning'
         })
         evtSource.addEventListener('message', (e) => {
-            // console.log('EventSource message.', e)
             dom.crawlLog.innerHTML = e.data
         })
-        evtSource.addEventListener('error', (e) => {
-            // console.log('EventSource error.', e)
-            evtSource.close()
-            dom.crawlStop.style.display = 'none'
-            dom.crawlStart.style.display = 'block'
-            dom.crawlUrl.disabled = false
-            updateReports()
+        evtSource.addEventListener('error', async () => {
+            if (evtSource && evtSource.readyState !== EventSource.CLOSED) {
+                evtSource.close()
+                evtSource = null
+            }
+            dom.body.dataset.status = 'ready'
+        })
+        evtSource.addEventListener('ended', async () => {
+            if (evtSource && evtSource.readyState !== EventSource.CLOSED) {
+                evtSource.close()
+                evtSource = null
+            }
+            dom.body.dataset.status = 'ready'
+            await updateReports()
         })
     }
 })
 
 // abort running crawl
 dom.crawlStop.addEventListener('click', async () => {
-    dom.crawlUrl.disabled = false
-    dom.crawlStop.disabled = true
-    const response = await fetch('api/scan/abort')
-    updateReports()
+    dom.body.dataset.status = 'pending'
+    await fetch('api/scan/abort')
+    dom.body.dataset.status = 'ready'
+    await updateReports()
 })
 
 // on load, populate reports select
 document.addEventListener('DOMContentLoaded', async () => {
-    updateReports()
+    dom.body.dataset.status = 'pending'
+    evtSource = new EventSource('api/scan/status')
+    evtSource.addEventListener('open', () => {
+        dom.body.dataset.status = 'scanning'
+    })
+    evtSource.addEventListener('message', (e) => {
+        dom.crawlLog.innerHTML = e.data
+    })
+    evtSource.addEventListener('error', () => {
+        evtSource.close()
+        dom.body.dataset.status = 'ready'
+    })
+
+    await updateReports()
     dom.status.value = ''
     dom.search.value = ''
     dom.internal.value = ''
@@ -122,7 +135,7 @@ async function updateReports() {
     // load fresh reports list
     const response = await fetch('api/reports')
     const list = await response.json()
-    let html = `<option value="">Reports...</option>`
+    let html = '<option value="">Reports...</option>'
     for (const item of list) html += `<option>${item}</option>`
     dom.report.innerHTML = html
 
@@ -215,7 +228,7 @@ function detail(data) {
             </tr>
             <tr>
                 <th>Type</th>
-                <td>${data.isInternal ? 'Internal' : 'External'}</td>
+                <td>${data.type}</td>
             </tr>
             <tr>
                 <th>Status</th>

@@ -7,7 +7,60 @@ import Data from './data.js'
 const server = express()
 let child
 
-server.use(express.static('public'))
+server.use(express.static(`${env.rootPath}/public`))
+
+server.get('/api/scan/status', (req, res) => {
+    console.log(child)
+    if (child) {
+        res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            Connection: 'keep-alive',
+        })
+
+        let str = ''
+        child.stdout.on('data', function (data) {
+            str += data.toString()
+            var lines = str.split('\n')
+            // eslint-disable-next-line no-restricted-syntax
+            for (var i in lines) {
+                if (i == lines.length - 1) {
+                    str = lines[i]
+                } else {
+                    if (!res.writableEnded) {
+                        res.write('data: ' + lines[i] + '\n\n')
+                    }
+                }
+            }
+        })
+
+        child.stderr.on('data', (data) => {
+            console.log(`stderr: ${data}`)
+            res.end()
+            killProcess(child)
+        })
+
+        child.on('error', (err) => {
+            console.log('child on error')
+            console.log('process error', err)
+            res.end()
+            killProcess(child)
+        })
+
+        child.on('exit', () => {
+            console.log('child on close')
+            res.end()
+            killProcess(child)
+        })
+    } else {
+        res.status(204, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            Connection: 'close',
+        })
+        res.end()
+    }
+})
 
 server.get('/api/scan/abort', () => {
     if (child) killProcess(child)
@@ -16,14 +69,14 @@ server.get('/api/scan/abort', () => {
 server.get('/api/scan/:url', (req, res) => {
     const crawlUrl = atob(req.params.url)
 
+    if (child) killProcess(child)
+    child = spawn('node', ['src/cli.js', 'scan', crawlUrl])
+
     res.writeHead(200, {
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
         Connection: 'keep-alive',
     })
-
-    if (child) killProcess(child)
-    child = spawn('node', ['src/cli.js', 'scan', crawlUrl])
 
     let str = ''
     child.stdout.on('data', function (data) {
@@ -44,13 +97,16 @@ server.get('/api/scan/:url', (req, res) => {
     child.stderr.on('data', (data) => {
         console.log(`stderr: ${data}`)
         res.end()
+        killProcess(child)
     })
 
     child.on('error', (err) => {
         console.log('process error', err)
+        res.end()
+        killProcess(child)
     })
 
-    child.on('close', () => {
+    child.on('exit', () => {
         res.end()
         killProcess(child)
     })

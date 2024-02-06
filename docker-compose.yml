@@ -2,7 +2,7 @@ version: '3'
 services:
     app:
         container_name: app-$PROJECT
-        image: node:21-alpine
+        image: node:20-alpine
         restart: unless-stopped
         user: '${UID}:${GID}'
         env_file: .env
